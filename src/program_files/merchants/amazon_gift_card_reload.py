@@ -151,7 +151,8 @@ def web_automation(driver, merchant, amount):
             break
         except WebDriverException:
             pass
-
+    
+    result = Result.success
     if merchant.dry_run == False:
         driver.find_element_by_xpath("//button[starts-with(text(),'Reload') and contains(text(),'" + utils.cents_to_str(amount) + "')]").click()
         time.sleep(1 + random.random() * 2)
@@ -172,11 +173,16 @@ def web_automation(driver, merchant, amount):
             time.sleep(10)  # give page a chance to load
     
             if 'thank-you' not in driver.current_url:
-                return Result.unverified
+                result = Result.unverified
 
-        return Result.success
     else:
-        return Result.dry_run
+        result = Result.dry_run
+    
+    if result == Result.success and merchant.merchant_specific_config['archive'] == True:
+        best_effort_archive_order(driver)
+
+    return result
+
 
 def handle_anti_automation_challenge(driver, merchant):
     try:
@@ -197,3 +203,27 @@ Anti-automation captcha detected. Please follow these steps, future runs shouldn
 ''')
     except TimeoutException:
         pass
+
+# Best-effort archive the most recent GC reload if we're asked to
+def best_effort_archive_order(driver):
+    amazon_consistency_delay_sec = 7
+
+    LOGGER.info(
+        f'Waiting {amazon_consistency_delay_sec} seconds before attempting to archive last order...')
+    time.sleep(amazon_consistency_delay_sec)
+
+    driver.get('https://smile.amazon.com/gp/your-account/order-history/')
+
+    first_archive_link_xpath = "(//a[contains(text(),'Amazon.com Gift Card Balance Reload')]/../../../../../../../../../../..//a[contains(text(),'Archive order')])"
+
+    try:
+        WebDriverWait(driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, first_archive_link_xpath)))
+        driver.find_element_by_xpath(first_archive_link_xpath).click()
+
+        archive_popup_link_xpath = "//input[@value='archiveOrder']"
+        WebDriverWait(driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, archive_popup_link_xpath)))
+        driver.find_element_by_xpath(archive_popup_link_xpath).click()
+
+        LOGGER.info('Archived successfully.')
+    except TimeoutException:
+        LOGGER.warning("Couldn't find an order to archive. Continuing.")
