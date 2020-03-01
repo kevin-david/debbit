@@ -5,4 +5,5 @@ class Result(Enum):
     success = 'success',
     skipped = 'skipped',
     unverified = 'unverified',
-    failed = 'failed'
+    failed = 'failed',
+    dry_run = 'dry_run'

@@ -152,29 +152,31 @@ def web_automation(driver, merchant, amount):
         except WebDriverException:
             pass
 
-    driver.find_element_by_xpath("//button[starts-with(text(),'Reload') and contains(text(),'" + utils.cents_to_str(amount) + "')]").click()
-    time.sleep(1 + random.random() * 2)
-
-    time.sleep(10)  # give page a chance to load
-    if 'thank-you' not in driver.current_url:
-        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, "//input[@placeholder='ending in " + merchant.card[-4:] + "']")))
-        elem = driver.find_element_by_xpath("//input[@placeholder='ending in " + merchant.card[-4:] + "']")
-        time.sleep(1 + random.random() * 2)
-        elem.send_keys(merchant.card)
-        time.sleep(1 + random.random() * 2)
-        elem.send_keys(Keys.TAB)
-        time.sleep(1 + random.random() * 2)
-        elem.send_keys(Keys.ENTER)
-        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Reload $" + utils.cents_to_str(amount) + "')]")))
-        time.sleep(1 + random.random() * 2)
+    if merchant.dry_run == False:
         driver.find_element_by_xpath("//button[starts-with(text(),'Reload') and contains(text(),'" + utils.cents_to_str(amount) + "')]").click()
+        time.sleep(1 + random.random() * 2)
+        
         time.sleep(10)  # give page a chance to load
+        if 'thank-you' not in driver.current_url:
+            WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, "//input[@placeholder='ending in " + merchant.card[-4:] + "']")))
+            elem = driver.find_element_by_xpath("//input[@placeholder='ending in " + merchant.card[-4:] + "']")
+            time.sleep(1 + random.random() * 2)
+            elem.send_keys(merchant.card)
+            time.sleep(1 + random.random() * 2)
+            elem.send_keys(Keys.TAB)
+            time.sleep(1 + random.random() * 2)
+            elem.send_keys(Keys.ENTER)
+            WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Reload $" + utils.cents_to_str(amount) + "')]")))
+            time.sleep(1 + random.random() * 2)
+            driver.find_element_by_xpath("//button[starts-with(text(),'Reload') and contains(text(),'" + utils.cents_to_str(amount) + "')]").click()
+            time.sleep(10)  # give page a chance to load
+    
+            if 'thank-you' not in driver.current_url:
+                return Result.unverified
 
-    if 'thank-you' not in driver.current_url:
-        return Result.unverified
-
-    return Result.success
-
+        return Result.success
+    else:
+        return Result.dry_run
 
 def handle_anti_automation_challenge(driver, merchant):
     try:
