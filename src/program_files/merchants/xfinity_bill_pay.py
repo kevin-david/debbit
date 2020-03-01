@@ -69,8 +69,10 @@ Detected first time run captcha. Please follow these one-time steps. Future runs
 
     WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located((By.XPATH, "//button[contains(text(),'Submit Payment')]")))
     time.sleep(random.random() * 3)
-    driver.find_element_by_xpath("//button[contains(text(),'Submit Payment')]").click()
-
+    if merchant.dry_run == False:
+        driver.find_element_by_xpath("//button[contains(text(),'Submit Payment')]").click()
+    else:
+        return Result.dry_run
     try:
         WebDriverWait(driver, 90).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'Your payment was successful')]")))
     except TimeoutException:

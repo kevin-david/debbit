@@ -57,13 +57,17 @@ def web_automation(driver, merchant, amount):
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
     driver.find_element_by_id('amount').send_keys(utils.cents_to_str(amount))
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-    driver.find_element_by_id('submit-payment').click()
 
-    try:
-        WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'Thank you!')]")))
-    except TimeoutException:
-        return Result.unverified  # Purchase command was executed, yet we are unable to verify that it was successfully executed.
-        # since debbit may have spent money but isn't sure, we log the error and stop any further payments for this merchant until the user intervenes
+    if merchant.dry_run == False:
+        driver.find_element_by_id('submit-payment').click()
 
-    time.sleep(5)  # sleep for a bit to show user that payment screen is reached
-    return Result.success
+        try:
+            WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'Thank you!')]")))
+        except TimeoutException:
+            return Result.unverified  # Purchase command was executed, yet we are unable to verify that it was successfully executed.
+            # since debbit may have spent money but isn't sure, we log the error and stop any further payments for this merchant until the user intervenes
+
+        time.sleep(5)  # sleep for a bit to show user that payment screen is reached
+        return Result.success
+    else:
+        return Result.dry_run

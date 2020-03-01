@@ -212,24 +212,27 @@ def web_automation(driver, merchant, amount):
     if not is_order_total_correct(driver, amount):
         return Result.unverified
 
-    if driver.find_elements_by_id('submitOrderButtonId'):
-        time.sleep(1 + random.random() * 2)
-        driver.find_element_by_id('submitOrderButtonId').click()  # Click "Place your order" button
-    else:
-        time.sleep(1 + random.random() * 2)
-        driver.find_element_by_id('placeYourOrder').click()  # Other checkout page click "Place your order" button
+    if merchant.dry_run == False:
+        if driver.find_elements_by_id('submitOrderButtonId'):
+            time.sleep(1 + random.random() * 2)
+            driver.find_element_by_id('submitOrderButtonId').click()  # Click "Place your order" button
+        else:
+            time.sleep(1 + random.random() * 2)
+            driver.find_element_by_id('placeYourOrder').click()  # Other checkout page click "Place your order" button
 
-    try:
-        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'your order has been placed') or contains(text(),'Order placed')]")))
-    except TimeoutException:
-        LOGGER.error('Clicked "Place your order" button, but unable to confirm if order was successful.')
-        return Result.unverified
+        try:
+            WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'your order has been placed') or contains(text(),'Order placed')]")))
+        except TimeoutException:
+            LOGGER.error('Clicked "Place your order" button, but unable to confirm if order was successful.')
+            return Result.unverified
 
-    if driver.find_elements_by_xpath("//*[contains(text(), 'your order has been placed') or contains(text(),'Order placed')]"):
-        return Result.success
+        if driver.find_elements_by_xpath("//*[contains(text(), 'your order has been placed') or contains(text(),'Order placed')]"):
+            return Result.success
+        else:
+            LOGGER.error('Clicked "Place your order" button, but unable to confirm if order was successful.')
+            return Result.unverified
     else:
-        LOGGER.error('Clicked "Place your order" button, but unable to confirm if order was successful.')
-        return Result.unverified
+        return Result.dry_run
 
 
 def handle_anti_automation_challenge(driver, merchant):
