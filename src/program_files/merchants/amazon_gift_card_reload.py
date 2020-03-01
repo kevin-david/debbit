@@ -227,12 +227,18 @@ def web_automation(driver, merchant, amount):
             return Result.unverified
 
         if driver.find_elements_by_xpath("//*[contains(text(), 'your order has been placed') or contains(text(),'Order placed')]"):
-            return Result.success
+            result = Result.success
         else:
             LOGGER.error('Clicked "Place your order" button, but unable to confirm if order was successful.')
             return Result.unverified
     else:
-        return Result.dry_run
+        result = Result.dry_run
+    
+    if result == Result.success and merchant.merchant_specific_config['archive'] == True:
+        best_effort_archive_order(driver)
+
+    return result
+
 
 
 def handle_anti_automation_challenge(driver, merchant):
