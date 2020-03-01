@@ -54,25 +54,28 @@ def web_automation(driver, merchant, amount):
     button_str = driver.find_element_by_id('otpSubmit').get_attribute('value')
     expect_str = "Pay $" + utils.cents_to_str(amount) + " now with " + merchant.card
 
-    if button_str == expect_str:
-        driver.find_element_by_id('otpSubmit').click()
-        LOGGER.info('Submitting purchase: ' + button_str)
-    else:
-        LOGGER.error('Failed to find valid pay button.')
-        LOGGER.info('Detected: ' + button_str)
-        LOGGER.info('Expected: ' + expect_str)
-        return Result.failed
+    if merchant.dry_run == False:
+        if button_str == expect_str:
+            driver.find_element_by_id('otpSubmit').click()
+            LOGGER.info('Submitting purchase: ' + button_str)
+        else:
+            LOGGER.error('Failed to find valid pay button.')
+            LOGGER.info('Detected: ' + button_str)
+            LOGGER.info('Expected: ' + expect_str)
+            return Result.failed
 
-    # Check if the payment succeeded.
-    try:
-        WebDriverWait(driver, 90).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'Confirmation Number:')]")))
-        LOGGER.info("Successful payment: " + driver.find_element_by_xpath("//*[contains(text(),'Confirmation Number:')]").text)
-        return Result.success
-    except TimeoutException:
-        # Check if there was an error, if so log the error.
+        # Check if the payment succeeded.
         try:
-            WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'unable')]")))
-            LOGGER.error("Failed payment: " + driver.find_element_by_xpath("//*[contains(text(),'unable')]").text)
+            WebDriverWait(driver, 90).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'Confirmation Number:')]")))
+            LOGGER.info("Successful payment: " + driver.find_element_by_xpath("//*[contains(text(),'Confirmation Number:')]").text)
+            return Result.success
         except TimeoutException:
+            # Check if there was an error, if so log the error.
+            try:
+                WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'unable')]")))
+                LOGGER.error("Failed payment: " + driver.find_element_by_xpath("//*[contains(text(),'unable')]").text)
+            except TimeoutException:
+                return Result.unverified
             return Result.unverified
-        return Result.unverified
+    else:
+        return Result.dry_run
