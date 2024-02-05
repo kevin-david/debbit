@@ -25,6 +25,7 @@ import yaml  # PyYAML
 from selenium import webdriver
 from selenium.common.exceptions import SessionNotCreatedException
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.service import Service
 
 from result import Result
 
@@ -506,17 +507,15 @@ def get_webdriver(merchant):
     WEB_DRIVER_LOCK.acquire()  # Only execute one purchase at a time so the console log messages don't inter mix
     options = Options()
     options.headless = CONFIG.hide_web_browser
-    profile = webdriver.FirefoxProfile(absolute_path('program_files', 'selenium-cookies-extension', 'firefox-profile'))
+    service = Service(geckodriver_path)
+    service.service_log_path = os.devnull
 
     # Prevent websites from detecting Selenium via evaluating `if (window.navigator.webdriver == true)` with JavaScript
-    profile.set_preference("dom.webdriver.enabled", False)
-    profile.set_preference('useAutomationExtension', False)
+    options.set_preference("dom.webdriver.enabled", False)
+    options.set_preference('useAutomationExtension', False)
 
     try:
-        driver = webdriver.Firefox(options=options,
-                                 service_log_path=os.devnull,
-                                 executable_path=geckodriver_path,
-                                 firefox_profile=profile)
+        driver = webdriver.Firefox(options=options,service=service)
 
     except SessionNotCreatedException as e:
         LOGGER.error(str(e) + '\n')
@@ -591,7 +590,7 @@ def persist_cookies(driver, merchant):
 
     seconds = 30
     for i in range(seconds * 10):
-        if driver.find_element_by_id('status').text == 'dom-ready':
+        if driver.find_element('status').text == 'dom-ready':
             break
         if i == seconds * 10 - 1:
             LOGGER.error('Unable to restore cookies after ' + str(seconds) + ' seconds - proceeding without restoring cookies')
