@@ -40,21 +40,24 @@ def web_automation(driver, merchant, amount):
         time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
         driver.find_element_by_id('id_password').send_keys(merchant.psw)
         time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-        driver.find_element_by_id('login').click()
-        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.Class, 'nav-item-make-payment')))
+        driver.find_element_by_xpath('//*[contains(@class, "col-whole-action")]//*[contains(@value, "Login")]').click()
+        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[contains(@class, "nav-item-make-payment")]')))
 
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
     driver.find_element_by_class_name('nav-item-make-payment').click()
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.Class, 'btn-type-next')))
+    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[contains(@class, "btn-type-next")]')))
     
     driver.find_element_by_xpath('//*[@id="label-radio-pt-1-0"]/span').click() # Just pick the first account
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
     driver.find_element_by_class_name('btn-type-next').click()
 
     toConfirmXPath = '//*[contains(@class, "col-whole-action")]//*[contains(@data-id, "btn-payment-details-next")]'
-    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable(By.XPATH, toConfirmXPath))
-    driver.find_element_by_xpath('//*[contains(@class, "paymentAmountCol")]/input').send_keys(utils.cents_to_str(amount))
+    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, toConfirmXPath)))
+    amountInput = driver.find_element_by_xpath('//*[contains(@class, "paymentAmountCol")]/input')
+    amountInput.clear()
+    amountInput.send_keys(utils.cents_to_str(amount))
+
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
     driver.find_element_by_xpath('//*[contains(@class, "paymentRadio")]/*[contains(text(),"****' + merchant.card[-4:] + '")]').click()
     time.sleep(2)
@@ -62,16 +65,17 @@ def web_automation(driver, merchant, amount):
 
     confirmXpath = '//*[contains(@class, "col-whole-action")]//*[contains(@data-id, "btn-payment-confirmation")]'
     WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, confirmXpath)))
+    time.sleep(30)  # sleep for a bit to show user that payment screen is reached
+
     if merchant.dry_run == False:
         driver.find_element_by_xpath(confirmXpath).click()
 
         try:
-            WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'Thank you!')]")))
+            WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'have been accepted')]")))
         except TimeoutException:
             return Result.unverified  # Purchase command was executed, yet we are unable to verify that it was successfully executed.
             # since debbit may have spent money but isn't sure, we log the error and stop any further payments for this merchant until the user intervenes
 
-        time.sleep(5)  # sleep for a bit to show user that payment screen is reached
         return Result.success
     else:
         return Result.dry_run
