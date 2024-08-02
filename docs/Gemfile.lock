@@ -81,7 +81,7 @@ GEM
     rb-fsevent (0.10.4)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rexml (3.3.0)
+    rexml (3.3.3)
       strscan
     rouge (3.18.0)
     rubocop (0.82.0)
