@@ -24,6 +24,7 @@ import coverage
 import yaml  # PyYAML
 from selenium import webdriver
 from selenium.common.exceptions import SessionNotCreatedException
+from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 
@@ -578,7 +579,7 @@ def restore_cookies(driver, merchant):
 
         seconds = 30
         for i in range(seconds * 10):
-            if driver.find_element_by_id('status').text == 'done':
+            if driver.find_element(By.ID, 'status').text == 'done':
                 return
             time.sleep(0.1)
         error_msg = 'Unable to restore cookies after ' + str(seconds) + ' seconds'
@@ -595,10 +596,10 @@ def persist_cookies(driver, merchant):
 
     seconds = 30
     for i in range(seconds * 10):
-        if driver.find_element('status').text == 'dom-ready':
+        if driver.find_element(By.ID, 'status').text == 'dom-ready':
             break
         if i == seconds * 10 - 1:
-            LOGGER.error('Unable to restore cookies after ' + str(seconds) + ' seconds - proceeding without restoring cookies')
+            LOGGER.error('Unable to persist cookies after ' + str(seconds) + ' seconds - proceeding without persisting cookies')
             return
         time.sleep(0.1)
 
@@ -626,10 +627,8 @@ def plural(word, count):
 
 
 def update_check():
-    non_ssl_context = ssl.SSLContext()  # Having issues with Pyinstaller executables throwing SSL errors. Disabling SSL verification for GET operations to static GitHub pages.
-
     try:
-        latest_version = int(urllib.request.urlopen('http://jakehilborn.github.io/debbit/updates/latest.txt', context=non_ssl_context).read())
+        latest_version = int(urllib.request.urlopen('https://jakehilborn.github.io/debbit/updates/latest.txt').read())
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception:
