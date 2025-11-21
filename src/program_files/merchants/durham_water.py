@@ -1,8 +1,10 @@
 import logging
+import random
 import time
 
-from selenium.common.exceptions import TimeoutException, ElementNotInteractableException
+from selenium.common.exceptions import TimeoutException, ElementNotInteractableException, NoSuchElementException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -24,58 +26,119 @@ For more complex scenarios, please refer to the other merchant .py files.
 
 
 def web_automation(driver, merchant, amount):
-    driver.get('https://ipn2.paymentus.com/cp/dhnc')
+    driver.get('https://billpay.onlinebiller.com/ebpp/durhamub/BillPay')
 
     logged_in = utils.is_logged_in(driver, timeout=90,
-       logged_out_element=(By.ID, 'id_password'),
-       logged_in_element=(By.ID, 'submit-payment') # TODO
+       logged_out_element=(By.ID, 'Password'),
+       logged_in_element=(By.CLASS_NAME, 'select-invoice-checkbox')
     )
 
     if not logged_in:
+        # Navigate to login page
+        driver.get('https://billpay.onlinebiller.com/ebpp/durhamub/Login/Index')
+        LOGGER.info('Looking for Login ID field')
         try: 
-            driver.find_element_by_id('id_loginId').send_keys(merchant.usr)
+            driver.find_element_by_id('Login').send_keys(merchant.usr)
         except ElementNotInteractableException:
             pass
 
         time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-        driver.find_element_by_id('id_password').send_keys(merchant.psw)
+        LOGGER.info('Looking for Password field')
+        driver.find_element_by_id('Password').send_keys(merchant.psw)
         time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-        driver.find_element_by_xpath('//*[contains(@class, "col-whole-action")]//*[contains(@value, "Login")]').click()
-        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[contains(@class, "nav-item-make-payment")]')))
+        LOGGER.info('Looking for login-button')
+        driver.find_element_by_id('login-button').click()
+        LOGGER.info('Waiting for select-invoice-checkbox to be present')
+        WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.CLASS_NAME, 'select-invoice-checkbox')))
 
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-    driver.find_element_by_class_name('nav-item-make-payment').click()
+    # Select the invoice checkbox
+    LOGGER.info('Clicking select-invoice-checkbox')
+    driver.execute_script("document.getElementsByClassName('select-invoice-checkbox')[0].click()")
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[contains(@class, "btn-type-next")]')))
     
-    driver.find_element_by_xpath('//*[@id="label-radio-pt-1-0"]/span').click() # Just pick the first account
+    # Set the payment amount
+    LOGGER.info('Looking for PaymentAmount field')
+    WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.NAME, 'PaymentAmount')))
+    amountInput = driver.find_elements_by_name('PaymentAmount')[0]
+    amountStr = utils.cents_to_str(amount)
+    LOGGER.info('Setting PaymentAmount to ' + amountStr)
+    # Use JavaScript to select all and clear, then type with Selenium
+    driver.execute_script("document.getElementsByName('PaymentAmount')[0].select()")
+    amountInput.send_keys(amountStr)  # This will replace the selected text
+    # Trigger blur to ensure the page recognizes the change
+    amountInput.send_keys(Keys.TAB)
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-    driver.find_element_by_class_name('btn-type-next').click()
-
-    toConfirmXPath = '//*[contains(@class, "col-whole-action")]//*[contains(@data-id, "btn-payment-details-next")]'
-    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, toConfirmXPath)))
-    amountInput = driver.find_element_by_xpath('//*[contains(@class, "paymentAmountCol")]/input')
-    amountInput.clear()
-    amountInput.send_keys(utils.cents_to_str(amount))
-
+    
+    # Select payment method (account selection)
+    LOGGER.info('Looking for payment-method element with card ending in ' + merchant.card[-4:])
+    # Select the option that matches the card's last 4 digits
+    driver.find_element_by_xpath('//*[@id="payment-method"]//*[contains(.,"****' + merchant.card[-4:] + '")]').click()
     time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
-    driver.find_element_by_xpath('//*[contains(@class, "paymentRadio")]/*[contains(.,"****' + merchant.card[-4:] + '")]').click()
-    time.sleep(2)
-    driver.find_element_by_xpath(toConfirmXPath).click()
+    
+    # Click the payment button
+    LOGGER.info('Looking for payment-button')
+    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.ID, 'payment-button')))
+    driver.find_element_by_id('payment-button').click()
 
-    confirmXpath = '//*[contains(@class, "col-whole-action")]//*[contains(@data-id, "btn-payment-confirmation")]'
-    WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.XPATH, confirmXpath)))
-    time.sleep(30)  # sleep for a bit to show user that payment screen is reached
-
-    if merchant.dry_run == False:
-        driver.find_element_by_xpath(confirmXpath).click()
-
+    # Wait for the confirmation page and verify payment method
+    LOGGER.info('Waiting for confirmation page with payment-method element')
+    WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.ID, 'payment-method')))
+    time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
+    
+    # Recheck that the payment-method element contains the last 4 of the selected card
+    LOGGER.info('Verifying payment-method contains card ending in ' + merchant.card[-4:])
+    paymentMethodText = driver.find_element_by_id('payment-method').text
+    if merchant.card[-4:] in paymentMethodText:
+        # Click the agreed checkbox
+        LOGGER.info('Clicking agreed checkbox')
+        driver.execute_script("document.getElementById('agreed').click()")
+        time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
+        
+        # Click submit-payment-btn
+        LOGGER.info('Clicking submit-payment-btn')
+        driver.find_element_by_id('submit-payment-btn').click()
+        time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
+        
+        # Check for duplicate-payment-submit-button first, if it exists click it
+        LOGGER.info('Checking for duplicate-payment-submit-button')
         try:
-            WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(text(),'have been accepted')]")))
-        except TimeoutException:
-            return Result.unverified  # Purchase command was executed, yet we are unable to verify that it was successfully executed.
-            # since debbit may have spent money but isn't sure, we log the error and stop any further payments for this merchant until the user intervenes
+            duplicateButton = driver.find_element_by_id('duplicate-payment-submit-button')
+            duplicateButton.click()
+            time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
+        except NoSuchElementException:
+            LOGGER.info('duplicate-payment-submit-button not found, continuing')
+            pass  # duplicate-payment-submit-button doesn't exist, continue
+        
+        # Wait for and verify automatic-payment-submit-button exists (should always be expected)
+        LOGGER.info('Looking for automatic-payment-submit-button')
+        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.ID, 'automatic-payment-submit-button')))
+        wait_time = random.randint(5, 10)
+        LOGGER.info('automatic-payment-submit-button found, ' + ('clicking after ' if not merchant.dry_run else ' dry run - will wait for ') + str(wait_time) + ' seconds...' )
+        time.sleep(wait_time)  # sleep for a bit to show user that payment screen is reached
 
-        return Result.success
+        if not merchant.dry_run:
+            LOGGER.info('Clicking automatic-payment-submit-button to finalize payment')
+            driver.find_element_by_id('automatic-payment-submit-button').click()
+
+            LOGGER.info('Waiting for payment confirmation number')
+            try:
+                # Look for text containing "confirmation" (case-insensitive)
+                confirmation_element = WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'confirmation')]")))
+                confirmation_text = confirmation_element.text
+                # Verify it contains a number
+                if any(char.isdigit() for char in confirmation_text):
+                    LOGGER.info('Found confirmation number: ' + confirmation_text)
+                    return Result.success
+                else:
+                    LOGGER.warning('Found confirmation text but no number: ' + confirmation_text)
+                    return Result.unverified
+            except TimeoutException:
+                return Result.unverified  # Purchase command was executed, yet we are unable to verify that it was successfully executed.
+                # since debbit may have spent money but isn't sure, we log the error and stop any further payments for this merchant until the user intervenes
+        else:
+            LOGGER.info('Dry run - pausing before final payment submission')
+            return Result.dry_run
     else:
-        return Result.dry_run
+        LOGGER.error('Payment method verification failed - card ending in ' + merchant.card[-4:] + ' not found in payment-method text')
+        return Result.failed  # Payment method verification failed
