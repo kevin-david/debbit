@@ -48,6 +48,11 @@ def web_automation(driver, merchant, amount):
         time.sleep(2)  # pause to let user watch what's happening - not necessary for real merchants
         LOGGER.info('Looking for login-button')
         driver.find_element_by_id('login-button').click()
+        LOGGER.info('Opening invoice selector dropdown')
+        WebDriverWait(driver, 30).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, 'a.invoice-selector'))).click()
+        LOGGER.info('Clicking "all" invoices')
+        all_link_selector = 'ul.invoice-selector-dropdown a.text-theme-link.all'
+        WebDriverWait(driver, 30).until(expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, all_link_selector))).click()
         LOGGER.info('Waiting for select-invoice-checkbox to be present')
         WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.CLASS_NAME, 'select-invoice-checkbox')))
 
@@ -124,7 +129,7 @@ def web_automation(driver, merchant, amount):
             LOGGER.info('Waiting for payment confirmation number')
             try:
                 # Look for text containing "confirmation" (case-insensitive)
-                confirmation_element = WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'confirmation')]")))
+                confirmation_element = WebDriverWait(driver, 30).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="payment-confirmation-summary"]/tbody/tr/td[2]')))
                 confirmation_text = confirmation_element.text
                 # Verify it contains a number
                 if any(char.isdigit() for char in confirmation_text):
@@ -132,6 +137,8 @@ def web_automation(driver, merchant, amount):
                     return Result.success
                 else:
                     LOGGER.warning('Found confirmation text but no number: ' + confirmation_text)
+                    LOGGER.warning('Waiting...')
+                    time.sleep(30)
                     return Result.unverified
             except TimeoutException:
                 return Result.unverified  # Purchase command was executed, yet we are unable to verify that it was successfully executed.
